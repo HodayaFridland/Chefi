@@ -1,0 +1,49 @@
+name: CI/CD
+
+# Run tests on every push and PR. Deploy only on pushes to main, and only if
+# AWS credentials are configured as repository secrets.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: Lint & test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm test
+      # Sanity-check the whole pipeline on the sample data (no AWS needed).
+      - run: npm run local
+
+  deploy:
+    name: Terraform apply
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    # These are set by the workflow only if the secrets exist; when they are
+    # empty the Terraform steps are skipped (see the `if` below).
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: us-east-1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: hashicorp/setup-terraform@v3
+      - name: Terraform init & apply
+        if: env.AWS_ACCESS_KEY_ID != ''
+        run: |
+          terraform -chdir=terraform init -input=false
+          terraform -chdir=terraform apply -input=false -auto-approve
+      - name: Skipped (no AWS secrets)
+        if: env.AWS_ACCESS_KEY_ID == ''
+        run: echo "AWS secrets not set; skipping deploy. Add AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY to enable."
