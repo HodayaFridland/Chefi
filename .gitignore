@@ -1,0 +1,24 @@
+# Node
+node_modules/
+npm-debug.log*
+
+# Terraform
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/*.tfplan
+terraform/.terraform.lock.hcl
+crash.log
+
+# Build artifacts (Lambda zip produced by terraform)
+*.zip
+
+# OS / editor
+.DS_Store
+Thumbs.db
+
+# Personal Hebrew study notes (not part of the submission)
+docs/*_he.md
+
+# The assignment brief itself is confidential; do not commit it
+*.docx
