@@ -72,9 +72,11 @@ src/lib/config.js     load versioned rules from S3 (cached)
 src/lib/ddb.js        DynamoDB helpers
 src/lib/logger.js     structured logs that never emit PII
 src/handlers/processLesson.js   the S3-triggered Lambda; wires the libs together
+src/handlers/readApi.js         Level 2 instructor read API (self-contained)
 scripts/run_local.js  run the whole pipeline on sample data, no AWS
 scripts/seed_students.js   load students.csv into DynamoDB
-terraform/            all infrastructure (one table, one bucket, one Lambda, IAM)
+scripts/show_results.js    read the deployed results back from DynamoDB
+terraform/            all infrastructure (table, bucket, Lambdas, IAM; read_api.tf is L2)
 test/                 unit tests for every pure module
 ```
 
@@ -143,8 +145,8 @@ curl "${URL}students/S-001?key=${KEY}"
 
 ## Results (Required item 8)
 
-Produced by `npm run local` over the 16 sample files. One file (`L-1007_retry1`)
-is a re-upload of `L-1007` and is de-duplicated, leaving 15 distinct lessons.
+All 16 sample files were processed; `L-1007_retry1` re-uploads `L-1007`, so it is
+de-duplicated, leaving 15 distinct lessons.
 
 > These results were produced by the **live AWS deployment**: the sample files were
 > uploaded to S3, processed by the Lambda, and read back from DynamoDB. They match the
@@ -253,9 +255,9 @@ and `make deploy` / `make destroy`.
 
 ## What I'd do with another week
 
-- Level 2: SQS FIFO per `student_id` for concurrency-safe ordering, a dead-letter
-  queue with a replay script, a CloudWatch alarm on Lambda errors, and the
-  authenticated instructor read API (`GET /students/{id}`, `GET /lessons/{id}`).
+- Remaining Level 2: SQS FIFO per `student_id` for concurrency-safe ordering, a
+  dead-letter queue with a replay script, and a CloudWatch alarm on Lambda errors.
+  (The authenticated instructor read API is already built — see above.)
 - Level 3: a `rules/active` pointer so v2 can be rolled out (and rolled back)
   without redeploying, plus an instructor-facing "trend per student" view.
 - A small integration test against LocalStack in CI.
