@@ -6,8 +6,10 @@ DriveCoach turns each uploaded driving-lesson file into a decision about the
 student (PASS / REVIEW / FAIL / INVALID), updates the student's progress through
 their program, and keeps an auditable trail of every decision.
 
-This submission implements **Level 1 (Required)**. The design was chosen so that
-Levels 2 and 3 slot in without rework (see "Design choices for later levels").
+This submission implements **Level 1 (Required)** in full, plus the **Level 2
+instructor read API** (kept clearly separated — see its own section and
+`terraform/read_api.tf`). The design was chosen so the rest of Levels 2–3 slot in
+without rework.
 
 ---
 
@@ -116,8 +118,28 @@ from DynamoDB match the local run exactly (see Results below).
 Everything is defined as Infrastructure as Code in `terraform/` and comes up with
 `make deploy` (and tears down with `make destroy`); `make seed` loads the students and
 `make upload` runs the sample files through the live pipeline. Processing is
-event-driven (S3 upload → Lambda), so there is no public endpoint to call at Level 1;
-the authenticated instructor read API is Level 2.
+event-driven (S3 upload → Lambda); the browsable public endpoint is the Level 2
+instructor read API (below).
+
+## Level 2 — instructor read API
+
+A small authenticated read API, deployed as a second Lambda behind a **Lambda Function
+URL** (a public HTTPS endpoint — no API Gateway needed). It is self-contained in
+`src/handlers/readApi.js` and `terraform/read_api.tf`, so Level 1 stays untouched.
+
+- `GET /students/{id}?key=<key>` — the student's current state + their lesson results
+- `GET /lessons/{id}?key=<key>` — one lesson's metrics, result and state change
+
+Auth is a shared key (`?key=...`) checked in the handler; without it the API returns
+`401`. `terraform apply` generates the key and prints `read_api_url` and
+`instructor_api_key` as outputs — no secret is committed. Only non-PII fields (the
+STATE and AUDIT items) are ever returned.
+
+```bash
+URL=$(terraform -chdir=terraform output -raw read_api_url)
+KEY=$(terraform -chdir=terraform output -raw instructor_api_key)
+curl "${URL}students/S-001?key=${KEY}"
+```
 
 ## Results (Required item 8)
 
