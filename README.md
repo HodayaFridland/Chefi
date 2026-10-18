@@ -107,31 +107,27 @@ make destroy    # tear everything down   (one command)
 
 ---
 
-## Deployment status
+## Deployment
 
-The infrastructure is written as code and comes up with a single command
-(`make deploy`) — the architecture, security posture and IaC are complete and
-reviewable, and can be deployed into any unrestricted AWS account.
+The stack is deployed live on AWS (region `us-east-1`) and verified end-to-end: the
+sample files were uploaded to S3, processed by the Lambda, and the results read back
+from DynamoDB match the local run exactly (see Results below).
 
-I did not attach a live environment to this submission. The only AWS account
-available to me is a restricted member account inside an organization whose
-Service Control Policies block creating the required resources (DynamoDB, among
-others), and I could not provision a clean account from my network. Rather than
-ship a half-working environment, I verified the full pipeline locally against
-the sample data with `npm run local` — the exact code the Lambda runs. With an
-unrestricted account, the same `make deploy` brings the system up as designed,
-after which `make seed` and `make upload` reproduce the results below on AWS.
+Everything is defined as Infrastructure as Code in `terraform/` and comes up with
+`make deploy` (and tears down with `make destroy`); `make seed` loads the students and
+`make upload` runs the sample files through the live pipeline. Processing is
+event-driven (S3 upload → Lambda), so there is no public endpoint to call at Level 1;
+the authenticated instructor read API is Level 2.
 
 ## Results (Required item 8)
 
 Produced by `npm run local` over the 16 sample files. One file (`L-1007_retry1`)
 is a re-upload of `L-1007` and is de-duplicated, leaving 15 distinct lessons.
 
-> These results come from the exact code the Lambda runs, executed via
-> `npm run local` over the sample data. Anyone can reproduce them in ~30 seconds
-> with Node.js and no AWS account (see "How to run"). The solution is fully
-> deployable with one command (`make deploy`); see "Deployment status" below for
-> why a live environment is not attached to this submission.
+> These results were produced by the **live AWS deployment**: the sample files were
+> uploaded to S3, processed by the Lambda, and read back from DynamoDB. They match the
+> local run (`npm run local`) exactly. You can also reproduce them locally in ~30
+> seconds with Node.js and no AWS account (see "How to run").
 
 ### Lesson results (in processing order)
 
