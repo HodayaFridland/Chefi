@@ -1,15 +1,7 @@
 'use strict';
 
-/**
- * logger.js
- * ---------
- * Minimal structured (JSON) logging for CloudWatch.
- *
- * The assignment requires that personal data is never written to logs. We only
- * ever log identifiers and metrics (lesson_id, student_id, counts, result) —
- * never names, emails, phones or national ids. As a safety net, this logger
- * drops any field whose name looks like personal data.
- */
+// Structured JSON logging. Drops any PII-looking field so personal data never
+// reaches CloudWatch.
 
 const PII_KEYS = new Set([
   'full_name',
@@ -30,7 +22,6 @@ function redact(fields) {
 }
 
 function log(level, message, fields = {}) {
-  // One JSON object per line is the format CloudWatch Logs Insights parses best.
   console.log(JSON.stringify({ level, message, ...redact(fields) }));
 }
 

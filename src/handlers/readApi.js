@@ -1,20 +1,10 @@
 'use strict';
 
-/**
- * readApi.js  (LEVEL 2 — instructor read API)
- * -------------------------------------------
- * A single Lambda behind a Lambda Function URL (a public HTTPS endpoint, no API
- * Gateway needed). Two read-only routes:
- *
- *   GET /students/{id}  -> the student's current state + their lesson results
- *   GET /lessons/{id}   -> one lesson's metrics, result and state change
- *
- * Auth: a shared key passed as ?key=... and checked against the API_KEY env var
- * (so the endpoint is authenticated, as Level 2 requires). Personal data is
- * never returned — only the STATE and AUDIT items, which hold no PII.
- *
- * This file is intentionally self-contained so the Level 1 code stays untouched.
- */
+// Level 2 instructor read API, behind a Lambda Function URL:
+//   GET /students/{id}?key=...  -> state + lesson results
+//   GET /lessons/{id}?key=...   -> one lesson's metrics, result and state change
+// Auth: a shared key (?key=) checked against API_KEY. Only non-PII items are returned.
+// Self-contained so Level 1 code stays untouched.
 
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, QueryCommand, ScanCommand } = require('@aws-sdk/lib-dynamodb');
@@ -32,14 +22,10 @@ function json(statusCode, body) {
 }
 
 exports.handler = async (event) => {
-  // Simple shared-key auth.
   const key = event.queryStringParameters && event.queryStringParameters.key;
-  if (!API_KEY || key !== API_KEY) {
-    return json(401, { error: 'unauthorized: add ?key=<api key>' });
-  }
+  if (!API_KEY || key !== API_KEY) return json(401, { error: 'unauthorized: add ?key=<api key>' });
 
-  const path = (event.rawPath || '/').replace(/\/+$/, '');
-  const parts = path.split('/').filter(Boolean); // e.g. ["students", "S-001"]
+  const parts = (event.rawPath || '/').replace(/\/+$/, '').split('/').filter(Boolean);
 
   try {
     if (parts[0] === 'students' && parts[1]) return await getStudent(parts[1]);
@@ -50,7 +36,6 @@ exports.handler = async (event) => {
   }
 };
 
-// GET /students/{id}: the STATE item plus a summary of the student's lessons.
 async function getStudent(id) {
   const out = await doc.send(
     new QueryCommand({
@@ -77,8 +62,7 @@ async function getStudent(id) {
   return json(200, { student: state, lessons });
 }
 
-// GET /lessons/{id}: the AUDIT record for one lesson (metrics, result, change).
-// A Scan is fine at this scale; a GSI on lesson_id would scale this later.
+// Scan is fine at this scale; a GSI on lesson_id would scale this later.
 async function getLesson(id) {
   const out = await doc.send(
     new ScanCommand({

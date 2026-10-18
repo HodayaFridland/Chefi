@@ -1,19 +1,10 @@
 'use strict';
 
-/**
- * ddb.js
- * ------
- * Thin wrapper around DynamoDB using the AWS SDK v3 Document client, which maps
- * plain JS objects to/from DynamoDB for us. One table, keyed by (pk, sk):
- *
- *   SEED   pk=STUDENT#<id>  sk=SEED              immutable starting record (from CSV)
- *   STATE  pk=STUDENT#<id>  sk=STATE             current computed state (overwritten)
- *   LESSON pk=STUDENT#<id>  sk=LESSON#<lesson_id> per-lesson metrics (facts)
- *   AUDIT  pk=STUDENT#<id>  sk=AUDIT#<lesson_id>  per-lesson decision + state change
- *
- * Keying LESSON/AUDIT by lesson_id makes retries idempotent: re-processing the
- * same lesson overwrites the same item instead of creating a duplicate.
- */
+// DynamoDB access (SDK v3 Document client). One table keyed by (pk, sk):
+//   SEED   STUDENT#<id> / SEED               immutable starting record
+//   STATE  STUDENT#<id> / STATE              current computed state
+//   LESSON STUDENT#<id> / LESSON#<lesson_id> per-lesson metrics (idempotent by lesson_id)
+//   AUDIT  STUDENT#<id> / AUDIT#<lesson_id>  per-lesson decision + state change
 
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const {
@@ -38,7 +29,6 @@ async function putItem(item) {
   await doc.send(new PutCommand({ TableName: TABLE, Item: item }));
 }
 
-// Return all items for one student whose sk starts with the given prefix.
 async function queryByPrefix(pk, skPrefix) {
   const items = [];
   let ExclusiveStartKey;
@@ -57,7 +47,7 @@ async function queryByPrefix(pk, skPrefix) {
   return items;
 }
 
-// Write many items in batches of 25 (DynamoDB's BatchWrite limit).
+// BatchWrite in chunks of 25 (DynamoDB's limit).
 async function putMany(items) {
   for (let i = 0; i < items.length; i += 25) {
     const chunk = items.slice(i, i + 25);

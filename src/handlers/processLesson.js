@@ -1,20 +1,8 @@
 'use strict';
 
-/**
- * processLesson.js  (Lambda handler)
- * ----------------------------------
- * Triggered when a lesson file is created under incoming/ in the raw S3 bucket.
- *
- * For each uploaded file:
- *   1. download + parse + compute metrics (the pure lib functions);
- *   2. store the lesson's facts in DynamoDB (idempotent by lesson_id);
- *   3. replay the student from their immutable SEED + all stored lessons,
- *      so the state is always correct regardless of upload order;
- *   4. store the new student STATE and one AUDIT record per lesson.
- *
- * The same pure functions are exercised by `npm run local`, so what we verified
- * offline is exactly what runs here.
- */
+// Lambda handler: triggered when a lesson file is created under incoming/ in the raw
+// bucket. For each file: parse + compute metrics, store the lesson, then replay the
+// student from their SEED + all stored lessons and store the new STATE and AUDIT records.
 
 const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
 
@@ -27,8 +15,7 @@ const log = require('../lib/logger');
 
 const s3 = new S3Client({});
 
-// The state fields we persist. This deliberately excludes the personal-data
-// fields carried on the seed record, so PII stays only in the SEED item.
+// Fields we persist in STATE/AUDIT — excludes the PII carried on the SEED record.
 function stateFields(state) {
   return {
     student_id: state.student_id,
@@ -43,17 +30,14 @@ function stateFields(state) {
 
 exports.handler = async (event) => {
   const rules = await loadRules();
-
   for (const record of event.Records) {
     const bucket = record.s3.bucket.name;
-    // S3 keys arrive URL-encoded.
     const key = decodeURIComponent(record.s3.object.key.replace(/\+/g, ' '));
     await processOne(bucket, key, rules); // throw on error -> Lambda retry / DLQ (L2)
   }
 };
 
 async function processOne(bucket, key, rules) {
-  // 1. Download and compute.
   const obj = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
   const content = await obj.Body.transformToString();
   const { headers, rows } = parseLesson(content);
@@ -62,7 +46,7 @@ async function processOne(bucket, key, rules) {
   const studentId = headers.student_id;
   const pk = ddb.studentPk(studentId);
 
-  // 2. Store this lesson's facts. Keyed by lesson_id so a retry overwrites.
+  // Store this lesson's facts (keyed by lesson_id so a retry overwrites).
   await ddb.putItem({
     pk,
     sk: `LESSON#${headers.lesson_id}`,
@@ -76,7 +60,6 @@ async function processOne(bucket, key, rules) {
     metrics,
   });
 
-  // 3. Replay from the immutable seed + every stored lesson for this student.
   const seed = await ddb.getItem(pk, 'SEED');
   if (!seed) {
     log.warn('no seed for student; lesson stored but state not updated', {
@@ -95,8 +78,6 @@ async function processOne(bucket, key, rules) {
   }));
 
   const { state, audits } = replayStudent(seed, lessons, rules);
-
-  // 4. Persist the new state and one audit record per lesson (no PII in either).
   const now = new Date().toISOString();
 
   const auditItems = audits.map((a) => ({

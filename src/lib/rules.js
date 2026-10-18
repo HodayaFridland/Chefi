@@ -1,19 +1,7 @@
 'use strict';
 
-/**
- * rules.js
- * --------
- * The rules engine (section 6). It is deliberately generic and data-driven:
- * the thresholds live in a versioned config object (e.g. rules_v1.json), never
- * in this code. That means switching to rules v2 later is a config change, not
- * a code change.
- *
- * A single condition looks like: { "metric": "harsh_brake_count", "op": ">=", "value": 6 }
- * The config groups conditions into `fail_if_any` and `review_if_any`.
- */
+// Rules engine (section 6). Thresholds come from versioned config, not from code.
 
-// The comparison operators a condition may use. Kept tiny and explicit so a
-// config can never ask us to run arbitrary code.
 const OPERATORS = {
   '>': (a, b) => a > b,
   '>=': (a, b) => a >= b,
@@ -23,12 +11,6 @@ const OPERATORS = {
   '!=': (a, b) => a !== b,
 };
 
-/**
- * Is a single condition true for these metrics?
- * @param {object} metrics - the computed lesson metrics.
- * @param {{metric: string, op: string, value: number}} condition
- * @returns {boolean}
- */
 function checkCondition(metrics, condition) {
   const op = OPERATORS[condition.op];
   if (!op) throw new Error(`Unknown operator in rules: ${condition.op}`);
@@ -38,16 +20,8 @@ function checkCondition(metrics, condition) {
 }
 
 /**
- * Evaluate the metrics against the rules, in the order required by section 6:
- *   1. duration below min_duration_min            -> INVALID
- *   2. any condition in fail_if_any is true       -> FAIL
- *   3. otherwise any condition in review_if_any    -> REVIEW
- *   4. otherwise                                   -> PASS
- *
- * @param {object} metrics - output of computeMetrics().
- * @param {object} rules - the parsed rules config (rules_v1.json).
- * @returns {{result: string, rules_version: string, reason: string, matched: object|null}}
- *          `matched` is the condition that decided a FAIL/REVIEW, for the audit trail.
+ * Order: INVALID (duration < min) -> FAIL (any fail_if_any) -> REVIEW (any
+ * review_if_any) -> PASS. `matched` is the deciding condition, for the audit trail.
  */
 function evaluate(metrics, rules) {
   const rules_version = rules.version;
@@ -81,12 +55,7 @@ function evaluate(metrics, rules) {
     };
   }
 
-  return {
-    result: 'PASS',
-    rules_version,
-    reason: 'no fail or review condition matched',
-    matched: null,
-  };
+  return { result: 'PASS', rules_version, reason: 'no fail or review condition matched', matched: null };
 }
 
 module.exports = { evaluate, checkCondition, OPERATORS };

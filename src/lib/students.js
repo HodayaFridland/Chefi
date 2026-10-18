@@ -1,15 +1,6 @@
 'use strict';
 
-/**
- * students.js
- * -----------
- * Reads students.csv into an array of student records. Simple comma-split is
- * enough here: the file has no quoted fields or embedded commas.
- *
- * NOTE: these records contain personal data (name, national_id, phone, email).
- * Keep them out of logs. Only the state fields are needed for processing; the
- * contact fields are stored (encrypted) for the instructor read API later.
- */
+// Reads students.csv into records. These contain personal data; keep them out of logs.
 
 function parseStudents(content) {
   const lines = content
