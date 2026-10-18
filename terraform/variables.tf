@@ -16,6 +16,12 @@ variable "project_name" {
   default     = "drivecoach"
 }
 
+variable "s3_use_path_style" {
+  description = "Use path-style S3 URLs (helps when a network proxy blocks per-bucket subdomains)"
+  type        = bool
+  default     = false
+}
+
 # NOTE: the inherited starter committed a real-looking `instructor_api_key`
 # default here, which is a secret-in-the-repo problem. It has been removed.
 # The instructor read API is Level 2; its secret will be introduced then,
